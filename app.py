@@ -92,7 +92,7 @@ if "chat_active_with" not in st.session_state:
 
 # --- ENCABEZADO PRINCIPAL ---
 st.markdown("<h1 style='text-align: center; color: #0f172a; font-weight: 700; letter-spacing: -1px;'>⚡ VibeSync</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Red social privada, eventos y botes grupales</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Red social privada, eventos y fondos grupales</p>", unsafe_allow_html=True)
 st.markdown("<div style='margin: 25px 0;'></div>", unsafe_allow_html=True)
 
 # Si el usuario NO ha iniciado sesión
@@ -168,7 +168,7 @@ else:
     if num_solicitudes > 0:
         tab_label_amigos += f" 🔴({num_solicitudes})"
 
-    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", tab_label_amigos, "🎉 Mis Eventos & Botes", "💬 Chat Privado"])
+    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", tab_label_amigos, "🎉 Mis Eventos & Fondo", "💬 Chat Privado"])
     
     with tab_perfil:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -296,31 +296,6 @@ else:
                         ap_avatar = ap.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         dna = ap.get("taste_dna", {})
                         
-                        # Cargar eventos del amigo
-                        evs = supabase.table("events").select("*").eq("host_id", amigo_id).execute()
-                        
-                        if evs.data:
-                            for ev in evs.data:
-                                ev_id = ev.get("id")
-                                ev_title = ev.get("title")
-                                ev_date = ev.get("event_date", "")
-                                ev_loc = ev.get("location", "")
-                                
-                                st.markdown(f"""
-                                    <div style='background: #f8fafc; padding: 12px; border-radius: 12px; margin-top: 8px; border: 1px solid #e2e8f0;'>
-                                        <p style='font-size:0.9rem; font-weight:700; color:#0f172a; margin:0;'>🎉 {ev_title}</p>
-                                        <p style='font-size:0.8rem; color:#64748b; margin:2px 0;'>📍 {ev_loc} | 📅 {ev_date}</p>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Ver bote asociado a este evento si existe
-                                pool_q = supabase.table("event_pools").select("*").eq("event_id", ev_id).execute()
-                                if pool_q.data:
-                                    pool = pool_q.data[0]
-                                    cur = pool.get("current_amount", 0)
-                                    tar = pool.get("target_amount", 100)
-                                    st.markdown(f"<p style='font-size:0.8rem; color:#0f172a; margin:4px 0;'>💰 Bote grupal: ${cur} /${tar} MXN</p>", unsafe_allow_html=True)
-
                         st.markdown(f"""
                             <div class='modern-card'>
                                 <table style='width:100%; border:none;'>
@@ -338,8 +313,47 @@ else:
                                         </td>
                                     </tr>
                                 </table>
-                            </div>
                         """, unsafe_allow_html=True)
+
+                        evs = supabase.table("events").select("*").eq("host_id", amigo_id).execute()
+                        if evs.data:
+                            st.markdown("<p style='font-size: 0.9rem; font-weight: 700; color: #0f172a; margin-top: 15px;'>🎉 Eventos de este amigo:</p>", unsafe_allow_html=True)
+                            for ev in evs.data:
+                                ev_id = ev.get("id")
+                                ev_title = ev.get("title")
+                                ev_date = ev.get("event_date", "")
+                                ev_loc = ev.get("location", "")
+                                
+                                pool_q = supabase.table("event_pools").select("*").eq("event_id", ev_id).execute()
+                                pool = pool_q.data[0] if pool_q.data else {}
+                                cooperacion = pool.get("target_amount", 0)
+                                clabe_banco = pool.get("clabe", "CLABE no especificada")
+                                
+                                inscrito = supabase.table("event_attendees").select("*").eq("event_id", ev_id).eq("user_id", user_id).execute()
+                                ya_va = len(inscrito.data) > 0 if inscrito.data else False
+
+                                st.markdown(f"""
+                                    <div style='background: #f8fafc; padding: 15px; border-radius: 14px; margin-top: 10px; border: 1px solid #e2e8f0;'>
+                                        <p style='font-size:0.95rem; font-weight:700; color:#0f172a; margin:0;'>{ev_title}</p>
+                                        <p style='font-size:0.85rem; color:#64748b; margin:4px 0;'>📍 <b>Lugar:</b> {ev_loc} | 📅 <b>Fecha:</b> {ev_date}</p>
+                                        <p style='font-size:0.85rem; color:#0f172a; margin:4px 0;'>💰 <b>Fondo Grupal (Cooperación):</b> ${cooperacion} MXN</p>
+                                        <p style='font-size:0.8rem; color:#475569; margin:4px 0;'>💳 <b>Para transferir:</b> <code>{clabe_banco}</code></p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                
+                                col_b1, col_b2 = st.columns([2, 1])
+                                with col_b2:
+                                    if not ya_va:
+                                        if st.button("🎉 ¡Asistiré!", key=f"join_{ev_id}"):
+                                            supabase.table("event_attendees").insert({
+                                                "event_id": ev_id,
+                                                "user_id": user_id
+                                            }).execute()
+                                            st.success("¡Te has unido al evento con éxito!")
+                                            st.rerun()
+                                    else:
+                                        st.markdown("<p style='color: #10b981; font-weight: 600; font-size: 0.9rem; margin-top: 8px;'>✅ ¡Ya estás confirmado!</p>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("Aún no tienes amigos agregados. ¡Busca a alguien en la pestaña de búsqueda!")
 
@@ -374,10 +388,10 @@ else:
 
     with tab_eventos:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Mis Eventos y Botes</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b; margin-bottom: 20px;'>Organiza tus reuniones y fija una meta de dinero para el bote grupal.</p>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Mis Eventos y Fondo Grupal</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 20px;'>Organiza tus reuniones, fija la cuota por persona y comparte tu CLABE para recibir transferencias.</p>", unsafe_allow_html=True)
         
-        with st.expander("➕ Organizar Nuevo Evento con Bote"):
+        with st.expander("➕ Organizar Nuevo Evento con Fondo Grupal"):
             with st.form("event_form"):
                 ev_title = st.text_input("Título del Evento (ej. Carne Asada / Regalo Grupal)")
                 
@@ -399,15 +413,15 @@ else:
                 with col_h:
                     hora_sel = st.time_input("Hora del Encuentro")
                 
-                meta_bote = st.number_input("Meta de dinero para el Bote (MXN)", min_value=50.0, step=50.0, value=500.0)
+                meta_bote = st.number_input("Cuota exacta por persona (MXN)", min_value=20.0, step=10.0, value=100.0)
+                clabe_pago = st.text_input("Tu CLABE Interbancaria o Tarjeta para recibir transferencias")
                 
-                submit_event = st.form_submit_button("Publicar Evento y Bote")
+                submit_event = st.form_submit_button("Publicar Evento y Fondo")
                 
                 if submit_event:
                     try:
                         fecha_hora_combinada = f"{fecha_sel} {hora_sel.strftime('%H:%M')}"
                         
-                        # 1. Crear el evento
                         res_ev = supabase.table("events").insert({
                             "title": ev_title,
                             "location": ev_location,
@@ -415,17 +429,17 @@ else:
                             "host_id": user_id
                         }).execute()
                         
-                        # 2. Crear automáticamente su bote en event_pools
                         if res_ev.data:
                             nuevo_ev_id = res_ev.data[0].get("id")
                             supabase.table("event_pools").insert({
                                 "event_id": nuevo_ev_id,
                                 "target_amount": meta_bote,
                                 "current_amount": 0.0,
+                                "clabe": clabe_pago,
                                 "status": "active"
                             }).execute()
 
-                        st.success("¡Evento y bote creados con éxito!")
+                        st.success("¡Evento y fondo grupal publicados con éxito!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al crear el evento: {e}")
@@ -438,27 +452,39 @@ else:
             for ev in my_events.data:
                 ev_id = ev.get('id')
                 
-                # Consultar el bote de este evento
                 pool_q = supabase.table("event_pools").select("*").eq("event_id", ev_id).execute()
-                pool = pool_q.data[0] if pool_q.data else {"current_amount": 0, "target_amount": 100}
-                current_amt = pool.get("current_amount", 0)
-                target_amt = pool.get("target_amount", 100)
+                pool = pool_q.data[0] if pool_q.data else {"current_amount": 0, "target_amount": 100, "clabe": "N/A"}
+                cooperacion = pool.get("target_amount", 100)
+                clabe = pool.get("clabe", "N/A")
+
+                attendees_q = supabase.table("event_attendees").select("user_id").eq("event_id", ev_id).execute()
+                asistentes_nombres = []
+                if attendees_q.data:
+                    for att in attendees_q.data:
+                        u_att_id = att.get("user_id")
+                        u_prof = supabase.table("profiles").select("full_name").eq("id", u_att_id).execute()
+                        if u_prof.data:
+                            asistentes_nombres.append(u_prof.data[0].get("full_name"))
+                
+                asistentes_str = ", ".join(asistentes_nombres) if asistentes_nombres else "Nadie confirmado todavía."
 
                 st.markdown(f"""
                     <div class='modern-card'>
                         <h3 style='margin:0; color: #0f172a; font-weight: 700;'>🎉 {ev.get('title')}</h3>
                         <p style='color: #64748b; margin: 8px 0 5px 0;'>📍 <b>Lugar:</b> {ev.get('location', 'Por definir')}</p>
-                        <p style='color: #64748b; margin: 0 0 10px 0;'>📅 <b>Fecha y Hora:</b> {ev.get('event_date', 'Próximamente')}</p>
-                        <div style='background: #f1f5f9; padding: 12px 14px; border-radius: 12px; margin-top: 10px;'>
-                            <p style='margin:0; font-size: 0.9rem; color: #0f172a; font-weight: 600;'>💰 Bote Grupal: ${current_amt} /${target_amt} MXN recaudados</p>
+                        <p style='color: #64748b; margin: 0 0 5px 0;'>📅 <b>Fecha y Hora:</b> {ev.get('event_date', 'Próximamente')}</p>
+                        <p style='color: #64748b; margin: 0 0 5px 0;'>💰 <b>Fondo por persona:</b> ${cooperacion} MXN</p>
+                        <p style='color: #64748b; margin: 0 0 10px 0;'>💳 <b>CLABE de cobro:</b> <code>{clabe}</code></p>
+                        <div style='background: #f1f5f9; padding: 10px 14px; border-radius: 10px; margin-top: 10px;'>
+                            <p style='margin:0; font-size: 0.85rem; color: #334155;'>👥 <b>Asistentes confirmados:</b> {asistentes_str}</p>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("🗑️ Borrar este Evento y su Bote", key=f"del_me_{ev_id}"):
+                if st.button("🗑️ Borrar este Evento y su Fondo", key=f"del_me_{ev_id}"):
                     supabase.table("event_pools").delete().eq("event_id", ev_id).execute()
                     supabase.table("events").delete().eq("id", ev_id).execute()
-                    st.success("¡Evento y bote eliminados!")
+                    st.success("¡Evento y fondo eliminados!")
                     st.rerun()
                 st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
         else:

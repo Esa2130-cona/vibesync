@@ -9,44 +9,72 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS avanzados tipo Red Social
+# Estilos CSS Profesionales (Diseño Fluido y Moderno)
 st.markdown("""
     <style>
-    .main { background-color: #f1f5f9; }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    
+    .main { background-color: #f8fafc; }
+    
     .stButton>button {
         width: 100%;
-        border-radius: 10px;
-        background-color: #0f172a;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: white;
         font-weight: 600;
-        padding: 0.5rem;
+        padding: 0.6rem;
+        border: none;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+        transition: all 0.3s ease;
     }
-    .stButton>button:hover { background-color: #334155; color: white; }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+    }
     
-    .profile-card {
-        background-color: white;
-        padding: 25px;
-        border-radius: 16px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        margin-bottom: 20px;
+    /* Tarjetas flotantes modernas sin bordes rígidos */
+    .modern-card {
+        background: #ffffff;
+        padding: 30px;
+        border-radius: 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        transition: all 0.3s ease;
     }
+    .modern-card:hover {
+        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Insignias / Badges modernos */
     .badge {
-        display: inline-block;
-        background-color: #e2e8f0;
-        color: #1e293b;
-        padding: 6px 14px;
-        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        background-color: #f1f5f9;
+        color: #334155;
+        padding: 8px 16px;
+        border-radius: 50px;
         font-size: 0.85rem;
         font-weight: 600;
         margin-right: 8px;
         margin-bottom: 8px;
+        border: 1px solid #e2e8f0;
     }
+    
+    /* Avatar circular con borde elegante */
     .avatar-img {
-        width: 80px;
-        height: 80px;
+        width: 90px;
+        height: 90px;
         border-radius: 50%;
         object-fit: cover;
-        border: 3px solid #0f172a;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        border: 4px solid #ffffff;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -66,103 +94,106 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # --- ENCABEZADO PRINCIPAL ---
-st.markdown("<h1 style='text-align: center; color: #0f172a;'>⚡ VibeSync</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748b;'>Conecta con amigos, comparte tu vibra y organiza los mejores botes</p>", unsafe_allow_html=True)
-st.divider()
+st.markdown("<h1 style='text-align: center; color: #0f172a; font-weight: 700; letter-spacing: -1px;'>⚡ VibeSync</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Conecta con amigos, comparte tu vibra y organiza los mejores botes</p>", unsafe_allow_html=True)
+st.markdown("<div style='margin: 30px 0;'></div>", unsafe_allow_html=True)
 
 # Si el usuario NO ha iniciado sesión
 if st.session_state.user is None:
-    tab_login, tab_signup = st.tabs(["🔑 Iniciar Sesión", "✨ Registrarse"])
-    
-    with tab_login:
-        st.subheader("Bienvenido de nuevo")
-        with st.form("login_form"):
-            email = st.text_input("Correo Electrónico")
-            password = st.text_input("Contraseña", type="password")
-            submit_login = st.form_submit_button("Entrar a VibeSync")
-            
-            if submit_login:
-                try:
-                    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                    st.session_state.user = response.user
-                    st.success("¡Bienvenido de vuelta!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al iniciar sesión: {e}")
-                    
-    with tab_signup:
-        st.subheader("Crea tu cuenta social")
-        with st.form("signup_form"):
-            new_email = st.text_input("Correo Electrónico")
-            new_password = st.text_input("Crea una Contraseña", type="password")
-            new_username = st.text_input("Nombre de Usuario (ej. esau_clemente)")
-            new_fullname = st.text_input("Nombre Completo")
-            submit_signup = st.form_submit_button("Crear Cuenta")
-            
-            if submit_signup:
-                try:
-                    response = supabase.auth.sign_up({"email": new_email, "password": new_password})
-                    if response.user:
-                        # Generar un avatar por defecto usando las iniciales o un servicio público
-                        default_avatar = f"https://api.dicebear.com/7.x/avataaars/svg?seed={new_username}"
-                        supabase.table("profiles").insert({
-                            "id": response.user.id,
-                            "username": new_username,
-                            "full_name": new_fullname,
-                            "avatar_url": default_avatar,
-                            "taste_dna": {"fitness": "Gym / Pesas", "music": "Techno / House", "tech": "Python / Streamlit"}
-                        }).execute()
-                        st.success("¡Cuenta creada con éxito! Ya puedes iniciar sesión en la otra pestaña.")
-                except Exception as e:
-                    st.error(f"Error en el registro: {e}")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        tab_login, tab_signup = st.tabs(["🔑 Iniciar Sesión", "✨ Registrarse"])
+        
+        with tab_login:
+            st.markdown("<div style='padding-top: 15px;'></div>", unsafe_allow_html=True)
+            with st.form("login_form"):
+                email = st.text_input("Correo Electrónico")
+                password = st.text_input("Contraseña", type="password")
+                submit_login = st.form_submit_button("Entrar a VibeSync")
+                
+                if submit_login:
+                    try:
+                        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        st.session_state.user = response.user
+                        st.success("¡Bienvenido de vuelta!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al iniciar sesión: {e}")
+                        
+        with tab_signup:
+            st.markdown("<div style='padding-top: 15px;'></div>", unsafe_allow_html=True)
+            with st.form("signup_form"):
+                new_email = st.text_input("Correo Electrónico")
+                new_password = st.text_input("Crea una Contraseña", type="password")
+                new_username = st.text_input("Nombre de Usuario (ej. esau_clemente)")
+                new_fullname = st.text_input("Nombre Completo")
+                submit_signup = st.form_submit_button("Crear Cuenta")
+                
+                if submit_signup:
+                    try:
+                        response = supabase.auth.sign_up({"email": new_email, "password": new_password})
+                        if response.user:
+                            default_avatar = f"https://api.dicebear.com/7.x/avataaars/svg?seed={new_username}"
+                            supabase.table("profiles").insert({
+                                "id": response.user.id,
+                                "username": new_username,
+                                "full_name": new_fullname,
+                                "avatar_url": default_avatar,
+                                "taste_dna": {"fitness": "Gym / Pesas", "music": "Techno / House", "tech": "Python / Streamlit"}
+                            }).execute()
+                            st.success("¡Cuenta creada con éxito! Ya puedes iniciar sesión.")
+                    except Exception as e:
+                        st.error(f"Error en el registro: {e}")
 
 # Si el usuario YA inició sesión
 else:
     user_id = st.session_state.user.id
     
-    # Obtener perfil actual
     profile_data = supabase.table("profiles").select("*").eq("id", user_id).execute()
     current_profile = profile_data.data[0] if profile_data.data else {}
     
-    # Barra superior de navegación / usuario
+    # Barra superior moderna
     col_info, col_logout = st.columns([4, 1])
     with col_info:
-        st.write(f"Conectado como: **{current_profile.get('full_name', 'Usuario')}** `@{current_profile.get('username', 'user')}`")
+        st.markdown(f"<span style='color: #475569;'>Hola de nuevo,</span> <strong style='color: #0f172a;'>{current_profile.get('full_name', 'Usuario')}</strong> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 6px;'>@{current_profile.get('username', 'user')}</code>", unsafe_allow_html=True)
     with col_logout:
         if st.button("Cerrar Sesión"):
             supabase.auth.sign_out()
             st.session_state.user = None
             st.rerun()
             
-    st.divider()
+    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
 
-    # Pestañas principales de la Red Social
-    tab_perfil, tab_amigos, tab_eventos = st.tabs(["👤 Mi Muro y Perfil", "👥 Comunidad de Amigos", "🎉 Eventos & Botes"])
+    # Pestañas principales con diseño flotante
+    tab_perfil, tab_amigos, tab_eventos = st.tabs(["👤 Mi Perfil y Muro", "👥 Comunidad", "🎉 Eventos & Botes"])
     
     with tab_perfil:
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
         avatar = current_profile.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
         
-        # Tarjeta de perfil estilo Red Social con Avatar
-        col_avatar, col_datos = st.columns([1, 3])
+        # Contenedor principal del perfil en tarjeta flotante
+        st.markdown("<div class='modern-card'>", unsafe_allow_html=True)
+        col_avatar, col_datos = st.columns([1, 4])
         with col_avatar:
             st.markdown(f"<img src='{avatar}' class='avatar-img'>", unsafe_allow_html=True)
         with col_datos:
-            st.markdown(f"<h2>{current_profile.get('full_name', 'Mi Nombre')}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color: #64748b; margin-top: -15px;'>@{current_profile.get('username', 'usuario')}</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='margin: 0; color: #0f172a; font-weight: 700;'>{current_profile.get('full_name', 'Mi Nombre')}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #64748b; margin: 2px 0 12px 0; font-weight: 500;'>@{current_profile.get('username', 'usuario')}</p>", unsafe_allow_html=True)
         
-        st.divider()
-        st.markdown("<h4>🧬 Mi Taste DNA (ADN de Gustos)</h4>", unsafe_allow_html=True)
+        st.markdown("<hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #1e293b; font-size: 1.1rem; margin-bottom: 15px;'>🧬 Mi Taste DNA (ADN de Gustos)</h4>", unsafe_allow_html=True)
         
         taste_dna = current_profile.get("taste_dna", {})
         st.markdown(f"""
             <div>
-                <span class='badge'>🏋️ Deporte: {taste_dna.get('fitness', 'N/A')}</span>
-                <span class='badge'>🎵 Música: {taste_dna.get('music', 'N/A')}</span>
-                <span class='badge'>💻 Tech: {taste_dna.get('tech', 'N/A')}</span>
+                <span class='badge'>🏋️ Deporte: <b>{taste_dna.get('fitness', 'N/A')}</b></span>
+                <span class='badge'>🎵 Música: <b>{taste_dna.get('music', 'N/A')}</b></span>
+                <span class='badge'>💻 Tech: <b>{taste_dna.get('tech', 'N/A')}</b></span>
             </div>
         """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
         
-        # Formulario para actualizar Taste DNA y Foto de Perfil
+        # Formulario de edición estilizado
         with st.expander("✏️ Editar mi Perfil y Taste DNA"):
             with st.form("dna_form"):
                 new_avatar = st.text_input("URL de tu Foto / Avatar", value=current_profile.get('avatar_url', ''))
@@ -188,8 +219,9 @@ else:
                     st.rerun()
 
     with tab_amigos:
-        st.subheader("👥 Comunidad y Amigos en VibeSync")
-        st.markdown("Descubre los perfiles y gustos de otros miembros de la red.")
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>👥 Comunidad y Amigos</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Descubre los perfiles y gustos de otros miembros de la red.</p>", unsafe_allow_html=True)
         
         all_profiles = supabase.table("profiles").select("username, full_name, avatar_url, taste_dna").neq("id", user_id).execute()
         
@@ -199,16 +231,16 @@ else:
                 p_avatar = p.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                 
                 st.markdown(f"""
-                    <div class='profile-card'>
+                    <div class='modern-card'>
                         <table style='width:100%; border:none;'>
                             <tr>
-                                <td style='width: 90px; border:none;'>
+                                <td style='width: 100px; border:none; vertical-align: middle;'>
                                     <img src='{p_avatar}' class='avatar-img'>
                                 </td>
-                                <td style='border:none; vertical-align: middle;'>
-                                    <h3 style='margin:0;'>{p.get('full_name')}</h3>
-                                    <p style='color: #64748b; margin:0;'>@{p.get('username')}</p>
-                                    <div style='margin-top: 8px;'>
+                                <td style='border:none; vertical-align: middle; padding-left: 10px;'>
+                                    <h3 style='margin:0; color: #0f172a; font-weight: 700;'>{p.get('full_name')}</h3>
+                                    <p style='color: #64748b; margin:2px 0 10px 0; font-weight: 500;'>@{p.get('username')}</p>
+                                    <div>
                                         <span class='badge'>🏋️ {dna.get('fitness', 'N/A')}</span>
                                         <span class='badge'>🎵 {dna.get('music', 'N/A')}</span>
                                         <span class='badge'>💻 {dna.get('tech', 'N/A')}</span>
@@ -222,5 +254,5 @@ else:
             st.info("Aún no hay más usuarios en la red. ¡Invita a tus conocidos a unirse!")
 
     with tab_eventos:
-        st.subheader("🎉 Eventos y Botes Grupales")
-        st.info("📌 Próximo módulo: Creación de fiestas, reuniones y administración de botes automatizados.")
+        st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='modern-card'><h3>🎉 Eventos y Botes Grupales</h3><p style='color: #64748b;'>Próximo módulo en desarrollo: Creación de fiestas, reuniones y administración de botes automatizados.</p></div>", unsafe_allow_html=True)

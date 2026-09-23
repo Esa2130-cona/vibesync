@@ -31,8 +31,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Inicializar conexión a Supabase (Usa tus credenciales de Settings > API)
-SUPABASE_URL = "TU_SUPABASE_URL"
-SUPABASE_KEY = "TU_SUPABASE_ANON_KEY"
+SUPABASE_URL = "https://jemlrjrbbfeezojuuqye.supabase.co"
+SUPABASE_KEY = "sb_publishable_R7f_854Ol9n5JeGiISvnSA_ImMTeW0h"
 
 @st.cache_resource
 def init_connection():

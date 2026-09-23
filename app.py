@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS Profesionales (Con soporte para alertas y notificaciones)
+# Estilos CSS Profesionales
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -70,18 +70,6 @@ st.markdown("""
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
         border: 3px solid #ffffff;
     }
-
-    /* Estilo para insignia de notificación flotante */
-    .notif-badge {
-        background-color: #ef4444;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        margin-left: 6px;
-        vertical-align: middle;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -104,7 +92,7 @@ if "chat_active_with" not in st.session_state:
 
 # --- ENCABEZADO PRINCIPAL ---
 st.markdown("<h1 style='text-align: center; color: #0f172a; font-weight: 700; letter-spacing: -1px;'>⚡ VibeSync</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Red social privada, eventos y chat con amigos</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Red social privada, eventos y botes grupales</p>", unsafe_allow_html=True)
 st.markdown("<div style='margin: 25px 0;'></div>", unsafe_allow_html=True)
 
 # Si el usuario NO ha iniciado sesión
@@ -161,12 +149,9 @@ else:
     profile_data = supabase.table("profiles").select("*").eq("id", user_id).execute()
     current_profile = profile_data.data[0] if profile_data.data else {}
     
-    # --- CONSULTAR NOTIFICACIONES PENDIENTES ---
-    # 1. Solicitudes de amistad pendientes recibidas
     solicitudes_pendientes = supabase.table("friendships").select("id", count="exact").eq("receiver_id", user_id).eq("status", "pending").execute()
     num_solicitudes = len(solicitudes_pendientes.data) if solicitudes_pendientes.data else 0
 
-    # Barra superior con info de usuario y botón de salida
     col_info, col_logout = st.columns([4, 1])
     with col_info:
         st.markdown(f"<span style='color: #475569;'>Hola,</span> <strong style='color: #0f172a;'>{current_profile.get('full_name', 'Usuario')}</strong> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 6px;'>@{current_profile.get('username', 'user')}</code>", unsafe_allow_html=True)
@@ -179,13 +164,11 @@ else:
             
     st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
 
-    # Nombres de pestañas con indicador dinámico de notificaciones
     tab_label_amigos = f"👥 Buscar & Amigos"
     if num_solicitudes > 0:
         tab_label_amigos += f" 🔴({num_solicitudes})"
 
-    # Pestañas principales de la red social
-    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", tab_label_amigos, "🎉 Mis Eventos", "💬 Chat Privado"])
+    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", tab_label_amigos, "🎉 Mis Eventos & Botes", "💬 Chat Privado"])
     
     with tab_perfil:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -238,8 +221,6 @@ else:
 
     with tab_amigos:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        
-        # Etiqueta de la sub-pestaña con indicador numérico también visible por dentro
         sub_tab_solicitudes_label = f"📥 Solicitudes"
         if num_solicitudes > 0:
             sub_tab_solicitudes_label += f" ({num_solicitudes})"
@@ -315,13 +296,30 @@ else:
                         ap_avatar = ap.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         dna = ap.get("taste_dna", {})
                         
+                        # Cargar eventos del amigo
                         evs = supabase.table("events").select("*").eq("host_id", amigo_id).execute()
-                        eventos_str = ""
+                        
                         if evs.data:
                             for ev in evs.data:
-                                eventos_str += f"<p style='font-size:0.8rem; color:#64748b; margin:2px 0;'>🎉 {ev.get('title')} ({ev.get('event_date', '')})</p>"
-                        else:
-                            eventos_str = "<p style='font-size:0.8rem; color:#94a3b8;'>Sin eventos activos.</p>"
+                                ev_id = ev.get("id")
+                                ev_title = ev.get("title")
+                                ev_date = ev.get("event_date", "")
+                                ev_loc = ev.get("location", "")
+                                
+                                st.markdown(f"""
+                                    <div style='background: #f8fafc; padding: 12px; border-radius: 12px; margin-top: 8px; border: 1px solid #e2e8f0;'>
+                                        <p style='font-size:0.9rem; font-weight:700; color:#0f172a; margin:0;'>🎉 {ev_title}</p>
+                                        <p style='font-size:0.8rem; color:#64748b; margin:2px 0;'>📍 {ev_loc} | 📅 {ev_date}</p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # Ver bote asociado a este evento si existe
+                                pool_q = supabase.table("event_pools").select("*").eq("event_id", ev_id).execute()
+                                if pool_q.data:
+                                    pool = pool_q.data[0]
+                                    cur = pool.get("current_amount", 0)
+                                    tar = pool.get("target_amount", 100)
+                                    st.markdown(f"<p style='font-size:0.8rem; color:#0f172a; margin:4px 0;'>💰 Bote grupal: ${cur} /${tar} MXN</p>", unsafe_allow_html=True)
 
                         st.markdown(f"""
                             <div class='modern-card'>
@@ -336,10 +334,6 @@ else:
                                             <div>
                                                 <span class='badge'>🏋️ {dna.get('fitness', 'N/A')}</span>
                                                 <span class='badge'>🎵 {dna.get('music', 'N/A')}</span>
-                                            </div>
-                                            <div style='margin-top: 10px; border-top: 1px solid #f1f5f9; padding-top: 8px;'>
-                                                <p style='font-size:0.82rem; font-weight:600; color:#475569; margin-bottom:4px;'>Sus Eventos:</p>
-                                                {eventos_str}
                                             </div>
                                         </td>
                                     </tr>
@@ -380,12 +374,12 @@ else:
 
     with tab_eventos:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Mis Eventos Privados</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b; margin-bottom: 20px;'>Aquí solo tú administras las reuniones o botes que organizas.</p>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Mis Eventos y Botes</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 20px;'>Organiza tus reuniones y fija una meta de dinero para el bote grupal.</p>", unsafe_allow_html=True)
         
-        with st.expander("➕ Organizar Nuevo Evento"):
+        with st.expander("➕ Organizar Nuevo Evento con Bote"):
             with st.form("event_form"):
-                ev_title = st.text_input("Título del Evento (ej. Carne Asada / Rodada / Cumpleaños)")
+                ev_title = st.text_input("Título del Evento (ej. Carne Asada / Regalo Grupal)")
                 
                 ubicacion_opcion = st.selectbox("Lugar de Encuentro", [
                     "🏡 Casa / Terraza Principal", 
@@ -405,18 +399,33 @@ else:
                 with col_h:
                     hora_sel = st.time_input("Hora del Encuentro")
                 
-                submit_event = st.form_submit_button("Publicar mi Evento")
+                meta_bote = st.number_input("Meta de dinero para el Bote (MXN)", min_value=50.0, step=50.0, value=500.0)
+                
+                submit_event = st.form_submit_button("Publicar Evento y Bote")
                 
                 if submit_event:
                     try:
                         fecha_hora_combinada = f"{fecha_sel} {hora_sel.strftime('%H:%M')}"
-                        supabase.table("events").insert({
+                        
+                        # 1. Crear el evento
+                        res_ev = supabase.table("events").insert({
                             "title": ev_title,
                             "location": ev_location,
                             "event_date": fecha_hora_combinada,
                             "host_id": user_id
                         }).execute()
-                        st.success("¡Evento publicado con éxito!")
+                        
+                        # 2. Crear automáticamente su bote en event_pools
+                        if res_ev.data:
+                            nuevo_ev_id = res_ev.data[0].get("id")
+                            supabase.table("event_pools").insert({
+                                "event_id": nuevo_ev_id,
+                                "target_amount": meta_bote,
+                                "current_amount": 0.0,
+                                "status": "active"
+                            }).execute()
+
+                        st.success("¡Evento y bote creados con éxito!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error al crear el evento: {e}")
@@ -428,17 +437,28 @@ else:
         if my_events.data:
             for ev in my_events.data:
                 ev_id = ev.get('id')
+                
+                # Consultar el bote de este evento
+                pool_q = supabase.table("event_pools").select("*").eq("event_id", ev_id).execute()
+                pool = pool_q.data[0] if pool_q.data else {"current_amount": 0, "target_amount": 100}
+                current_amt = pool.get("current_amount", 0)
+                target_amt = pool.get("target_amount", 100)
+
                 st.markdown(f"""
                     <div class='modern-card'>
                         <h3 style='margin:0; color: #0f172a; font-weight: 700;'>🎉 {ev.get('title')}</h3>
                         <p style='color: #64748b; margin: 8px 0 5px 0;'>📍 <b>Lugar:</b> {ev.get('location', 'Por definir')}</p>
                         <p style='color: #64748b; margin: 0 0 10px 0;'>📅 <b>Fecha y Hora:</b> {ev.get('event_date', 'Próximamente')}</p>
+                        <div style='background: #f1f5f9; padding: 12px 14px; border-radius: 12px; margin-top: 10px;'>
+                            <p style='margin:0; font-size: 0.9rem; color: #0f172a; font-weight: 600;'>💰 Bote Grupal: ${current_amt} /${target_amt} MXN recaudados</p>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button("🗑️ Borrar este Evento", key=f"del_me_{ev_id}"):
+                if st.button("🗑️ Borrar este Evento y su Bote", key=f"del_me_{ev_id}"):
+                    supabase.table("event_pools").delete().eq("event_id", ev_id).execute()
                     supabase.table("events").delete().eq("id", ev_id).execute()
-                    st.success("¡Evento eliminado!")
+                    st.success("¡Evento y bote eliminados!")
                     st.rerun()
                 st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
         else:

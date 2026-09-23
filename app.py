@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS Profesionales (Estilo Mensajería Moderna)
+# Estilos CSS Profesionales (Con soporte para alertas y notificaciones)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -70,6 +70,18 @@ st.markdown("""
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
         border: 3px solid #ffffff;
     }
+
+    /* Estilo para insignia de notificación flotante */
+    .notif-badge {
+        background-color: #ef4444;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -87,7 +99,6 @@ supabase = init_connection()
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# Inicializar chat activo en session_state si no existe
 if "chat_active_with" not in st.session_state:
     st.session_state.chat_active_with = None
 
@@ -150,6 +161,12 @@ else:
     profile_data = supabase.table("profiles").select("*").eq("id", user_id).execute()
     current_profile = profile_data.data[0] if profile_data.data else {}
     
+    # --- CONSULTAR NOTIFICACIONES PENDIENTES ---
+    # 1. Solicitudes de amistad pendientes recibidas
+    solicitudes_pendientes = supabase.table("friendships").select("id", count="exact").eq("receiver_id", user_id).eq("status", "pending").execute()
+    num_solicitudes = len(solicitudes_pendientes.data) if solicitudes_pendientes.data else 0
+
+    # Barra superior con info de usuario y botón de salida
     col_info, col_logout = st.columns([4, 1])
     with col_info:
         st.markdown(f"<span style='color: #475569;'>Hola,</span> <strong style='color: #0f172a;'>{current_profile.get('full_name', 'Usuario')}</strong> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 6px;'>@{current_profile.get('username', 'user')}</code>", unsafe_allow_html=True)
@@ -160,10 +177,15 @@ else:
             st.session_state.chat_active_with = None
             st.rerun()
             
-    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
+
+    # Nombres de pestañas con indicador dinámico de notificaciones
+    tab_label_amigos = f"👥 Buscar & Amigos"
+    if num_solicitudes > 0:
+        tab_label_amigos += f" 🔴({num_solicitudes})"
 
     # Pestañas principales de la red social
-    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", "👥 Buscar & Amigos", "🎉 Mis Eventos", "💬 Chat Privado"])
+    tab_perfil, tab_amigos, tab_eventos, tab_chat = st.tabs(["👤 Mi Perfil", tab_label_amigos, "🎉 Mis Eventos", "💬 Chat Privado"])
     
     with tab_perfil:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -216,7 +238,13 @@ else:
 
     with tab_amigos:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["🔍 Buscar Usuarios", "🤝 Mis Amigos", "📥 Solicitudes Pendientes"])
+        
+        # Etiqueta de la sub-pestaña con indicador numérico también visible por dentro
+        sub_tab_solicitudes_label = f"📥 Solicitudes"
+        if num_solicitudes > 0:
+            sub_tab_solicitudes_label += f" ({num_solicitudes})"
+
+        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["🔍 Buscar Usuarios", "🤝 Mis Amigos", sub_tab_solicitudes_label])
         
         with sub_tab1:
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
@@ -420,7 +448,6 @@ else:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
         st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>💬 Mensajería Privada</h3>", unsafe_allow_html=True)
         
-        # Obtener amigos aceptados
         amigos_chat = supabase.table("friendships").select("*").or_(
             f"requester_id.eq.{user_id},receiver_id.eq.{user_id}"
         ).eq("status", "accepted").execute()
@@ -434,7 +461,6 @@ else:
             amigos_profiles = supabase.table("profiles").select("id, full_name, username, avatar_url").in_("id", amigos_ids).execute()
             
             if amigos_profiles.data:
-                # Interfaz dividida en columnas: Izquierda (Lista de amigos estilo WhatsApp), Derecha (Chat activo)
                 col_lista, col_conversacion = st.columns([1, 2])
                 
                 with col_lista:
@@ -442,27 +468,21 @@ else:
                     for amigo in amigos_profiles.data:
                         a_id = amigo.get("id")
                         a_name = amigo.get("full_name")
-                        a_user = amigo.get("username")
-                        a_avatar = amigo.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         
-                        # Botón estilizado para seleccionar al amigo con el que chatear
                         if st.button(f"💬 {a_name}", key=f"chat_with_{a_id}"):
                             st.session_state.chat_active_with = a_id
                             st.rerun()
                 
                 with col_conversacion:
                     if st.session_state.chat_active_with:
-                        # Buscar datos del amigo seleccionado
                         dest_info = supabase.table("profiles").select("*").eq("id", st.session_state.chat_active_with).execute()
                         if dest_info.data:
                             dest = dest_info.data[0]
                             st.markdown(f"<div style='background: #f1f5f9; padding: 10px 15px; border-radius: 12px; margin-bottom: 15px;'><h4 style='margin:0; color:#0f172a;'>Chat con {dest.get('full_name')} (@{dest.get('username')})</h4></div>", unsafe_allow_html=True)
                             
-                            # Botón rápido para actualizar mensajes sin cerrar sesión
                             if st.button("🔄 Actualizar Mensajes"):
                                 st.rerun()
                             
-                            # Cargar mensajes
                             mensajes_q = supabase.table("messages").select("*").or_(
                                 f"and(sender_id.eq.{user_id},receiver_id.eq.{st.session_state.chat_active_with}),and(sender_id.eq.{st.session_state.chat_active_with},receiver_id.eq.{user_id})"
                             ).order("created_at", desc=False).execute()
@@ -486,7 +506,6 @@ else:
                                 else:
                                     st.info("Inicia la conversación con este amigo.")
                             
-                            # Enviar mensaje
                             with st.form("chat_msg_form", clear_on_submit=True):
                                 txt_msg = st.text_input("Escribe un mensaje...", key="msg_input_field")
                                 btn_enviar = st.form_submit_button("Enviar")

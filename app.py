@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS avanzados tipo Red Social (Estilo Facebook/Moderno)
+# Estilos CSS avanzados tipo Red Social
 st.markdown("""
     <style>
     .main { background-color: #f1f5f9; }
@@ -23,7 +23,6 @@ st.markdown("""
     }
     .stButton>button:hover { background-color: #334155; color: white; }
     
-    /* Tarjetas de perfil estilo muro */
     .profile-card {
         background-color: white;
         padding: 25px;
@@ -41,6 +40,13 @@ st.markdown("""
         font-weight: 600;
         margin-right: 8px;
         margin-bottom: 8px;
+    }
+    .avatar-img {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #0f172a;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -97,17 +103,20 @@ if st.session_state.user is None:
                 try:
                     response = supabase.auth.sign_up({"email": new_email, "password": new_password})
                     if response.user:
+                        # Generar un avatar por defecto usando las iniciales o un servicio público
+                        default_avatar = f"https://api.dicebear.com/7.x/avataaars/svg?seed={new_username}"
                         supabase.table("profiles").insert({
                             "id": response.user.id,
                             "username": new_username,
                             "full_name": new_fullname,
+                            "avatar_url": default_avatar,
                             "taste_dna": {"fitness": "Gym / Pesas", "music": "Techno / House", "tech": "Python / Streamlit"}
                         }).execute()
                         st.success("¡Cuenta creada con éxito! Ya puedes iniciar sesión en la otra pestaña.")
                 except Exception as e:
                     st.error(f"Error en el registro: {e}")
 
-# Si el usuario YA inició sesión (Interfaz Social Tipo Perfil)
+# Si el usuario YA inició sesión
 else:
     user_id = st.session_state.user.id
     
@@ -131,28 +140,33 @@ else:
     tab_perfil, tab_amigos, tab_eventos = st.tabs(["👤 Mi Muro y Perfil", "👥 Comunidad de Amigos", "🎉 Eventos & Botes"])
     
     with tab_perfil:
-        # Estilo de Tarjeta de Perfil Tipo Red Social
-        st.markdown(f"""
-            <div class='profile-card'>
-                <h2>{current_profile.get('full_name', 'Mi Nombre')}</h2>
-                <p style='color: #64748b; margin-top: -10px;'>@{current_profile.get('username', 'usuario')}</p>
-                <hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;'>
-                <h4>🧬 Mi Taste DNA (ADN de Gustos)</h4>
-        """, unsafe_allow_html=True)
+        avatar = current_profile.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
+        
+        # Tarjeta de perfil estilo Red Social con Avatar
+        col_avatar, col_datos = st.columns([1, 3])
+        with col_avatar:
+            st.markdown(f"<img src='{avatar}' class='avatar-img'>", unsafe_allow_html=True)
+        with col_datos:
+            st.markdown(f"<h2>{current_profile.get('full_name', 'Mi Nombre')}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #64748b; margin-top: -15px;'>@{current_profile.get('username', 'usuario')}</p>", unsafe_allow_html=True)
+        
+        st.divider()
+        st.markdown("<h4>🧬 Mi Taste DNA (ADN de Gustos)</h4>", unsafe_allow_html=True)
         
         taste_dna = current_profile.get("taste_dna", {})
         st.markdown(f"""
-                <div>
-                    <span class='badge'>🏋️ Deporte: {taste_dna.get('fitness', 'N/A')}</span>
-                    <span class='badge'>🎵 Música: {taste_dna.get('music', 'N/A')}</span>
-                    <span class='badge'>💻 Tech: {taste_dna.get('tech', 'N/A')}</span>
-                </div>
+            <div>
+                <span class='badge'>🏋️ Deporte: {taste_dna.get('fitness', 'N/A')}</span>
+                <span class='badge'>🎵 Música: {taste_dna.get('music', 'N/A')}</span>
+                <span class='badge'>💻 Tech: {taste_dna.get('tech', 'N/A')}</span>
             </div>
         """, unsafe_allow_html=True)
         
-        # Formulario para actualizar el Taste DNA
-        with st.expander("✏️ Editar mi Taste DNA e Intereses"):
+        # Formulario para actualizar Taste DNA y Foto de Perfil
+        with st.expander("✏️ Editar mi Perfil y Taste DNA"):
             with st.form("dna_form"):
+                new_avatar = st.text_input("URL de tu Foto / Avatar", value=current_profile.get('avatar_url', ''))
+                
                 fit = st.selectbox("Fitness / Deporte", ["Gym / Pesas", "Running", "Artes Marciales", "Yoga", "Ninguno"], 
                                    index=["Gym / Pesas", "Running", "Artes Marciales", "Yoga", "Ninguno"].index(taste_dna.get("fitness", "Gym / Pesas")) if taste_dna.get("fitness") in ["Gym / Pesas", "Running", "Artes Marciales", "Yoga", "Ninguno"] else 0)
                 
@@ -162,11 +176,14 @@ else:
                 tch = st.selectbox("Tecnología / Pasatiempo", ["Python / Streamlit", "Servidores / Docker", "Videojuegos", "Lectura"],
                                    index=["Python / Streamlit", "Servidores / Docker", "Videojuegos", "Lectura"].index(taste_dna.get("tech", "Python / Streamlit")) if taste_dna.get("tech") in ["Python / Streamlit", "Servidores / Docker", "Videojuegos", "Lectura"] else 0)
                 
-                save_dna = st.form_submit_button("Guardar Cambios en mi Perfil")
+                save_dna = st.form_submit_button("Guardar Cambios")
                 
                 if save_dna:
                     updated_dna = {"fitness": fit, "music": mus, "tech": tch}
-                    supabase.table("profiles").update({"taste_dna": updated_dna}).eq("id", user_id).execute()
+                    supabase.table("profiles").update({
+                        "taste_dna": updated_dna,
+                        "avatar_url": new_avatar
+                    }).eq("id", user_id).execute()
                     st.success("¡Perfil actualizado con éxito!")
                     st.rerun()
 
@@ -174,19 +191,31 @@ else:
         st.subheader("👥 Comunidad y Amigos en VibeSync")
         st.markdown("Descubre los perfiles y gustos de otros miembros de la red.")
         
-        all_profiles = supabase.table("profiles").select("username, full_name, taste_dna").neq("id", user_id).execute()
+        all_profiles = supabase.table("profiles").select("username, full_name, avatar_url, taste_dna").neq("id", user_id).execute()
         
         if all_profiles.data:
             for p in all_profiles.data:
                 dna = p.get("taste_dna", {})
+                p_avatar = p.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
+                
                 st.markdown(f"""
                     <div class='profile-card'>
-                        <h3>👤 {p.get('full_name')} <span style='font-size: 0.9rem; color: #64748b;'>@{p.get('username')}</span></h3>
-                        <div style='margin-top: 10px;'>
-                            <span class='badge'>🏋️ {dna.get('fitness', 'N/A')}</span>
-                            <span class='badge'>🎵 {dna.get('music', 'N/A')}</span>
-                            <span class='badge'>💻 {dna.get('tech', 'N/A')}</span>
-                        </div>
+                        <table style='width:100%; border:none;'>
+                            <tr>
+                                <td style='width: 90px; border:none;'>
+                                    <img src='{p_avatar}' class='avatar-img'>
+                                </td>
+                                <td style='border:none; vertical-align: middle;'>
+                                    <h3 style='margin:0;'>{p.get('full_name')}</h3>
+                                    <p style='color: #64748b; margin:0;'>@{p.get('username')}</p>
+                                    <div style='margin-top: 8px;'>
+                                        <span class='badge'>🏋️ {dna.get('fitness', 'N/A')}</span>
+                                        <span class='badge'>🎵 {dna.get('music', 'N/A')}</span>
+                                        <span class='badge'>💻 {dna.get('tech', 'N/A')}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
                 """, unsafe_allow_html=True)
         else:

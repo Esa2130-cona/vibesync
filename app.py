@@ -26,8 +26,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Conexión a Supabase usando Secrets de Streamlit Cloud (CORRECTO)
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_URL = st.secrets["https://jemlrjrbbfeezojuuqye.supabase.co"]
+SUPABASE_KEY = st.secrets["sb_publishable_R7f_854Ol9n5JeGiISvnSA_ImMTeW0h"]
 
 @st.cache_resource
 def init_connection():

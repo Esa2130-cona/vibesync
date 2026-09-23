@@ -9,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS Profesionales (Diseño Fluido y Moderno)
+# Estilos CSS Profesionales
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -38,7 +38,6 @@ st.markdown("""
         color: white;
     }
     
-    /* Tarjetas flotantes modernas sin bordes rígidos */
     .modern-card {
         background: #ffffff;
         padding: 30px;
@@ -46,28 +45,22 @@ st.markdown("""
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         margin-bottom: 24px;
         border: 1px solid rgba(226, 232, 240, 0.8);
-        transition: all 0.3s ease;
-    }
-    .modern-card:hover {
-        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08);
     }
     
-    /* Insignias / Badges modernos */
     .badge {
         display: inline-flex;
         align-items: center;
         background-color: #f1f5f9;
         color: #334155;
-        padding: 8px 16px;
+        padding: 6px 14px;
         border-radius: 50px;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 600;
         margin-right: 8px;
         margin-bottom: 8px;
         border: 1px solid #e2e8f0;
     }
     
-    /* Avatar circular con borde elegante */
     .avatar-img {
         width: 90px;
         height: 90px;
@@ -152,7 +145,6 @@ else:
     profile_data = supabase.table("profiles").select("*").eq("id", user_id).execute()
     current_profile = profile_data.data[0] if profile_data.data else {}
     
-    # Barra superior moderna
     col_info, col_logout = st.columns([4, 1])
     with col_info:
         st.markdown(f"<span style='color: #475569;'>Hola de nuevo,</span> <strong style='color: #0f172a;'>{current_profile.get('full_name', 'Usuario')}</strong> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 6px;'>@{current_profile.get('username', 'user')}</code>", unsafe_allow_html=True)
@@ -164,14 +156,12 @@ else:
             
     st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
 
-    # Pestañas principales con diseño flotante
     tab_perfil, tab_amigos, tab_eventos = st.tabs(["👤 Mi Perfil y Muro", "👥 Comunidad", "🎉 Eventos & Botes"])
     
     with tab_perfil:
         st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
         avatar = current_profile.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
         
-        # Contenedor principal del perfil en tarjeta flotante
         st.markdown("<div class='modern-card'>", unsafe_allow_html=True)
         col_avatar, col_datos = st.columns([1, 4])
         with col_avatar:
@@ -193,7 +183,6 @@ else:
         """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Formulario de edición estilizado
         with st.expander("✏️ Editar mi Perfil y Taste DNA"):
             with st.form("dna_form"):
                 new_avatar = st.text_input("URL de tu Foto / Avatar", value=current_profile.get('avatar_url', ''))
@@ -255,4 +244,44 @@ else:
 
     with tab_eventos:
         st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
-        st.markdown("<div class='modern-card'><h3>🎉 Eventos y Botes Grupales</h3><p style='color: #64748b;'>Próximo módulo en desarrollo: Creación de fiestas, reuniones y administración de botes automatizados.</p></div>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Eventos y Reuniones</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Organiza reuniones y planes con la comunidad.</p>", unsafe_allow_html=True)
+        
+        # Formulario adaptado a las columnas reales de tu tabla 'events' (`host_id`, `title`, `event_date`, `location`)
+        with st.expander("➕ Organizar Nuevo Evento"):
+            with st.form("event_form"):
+                ev_title = st.text_input("Título del Evento (ej. Carne Asada Fin de Semana)")
+                ev_location = st.text_input("Ubicación / Lugar (ej. Terraza Cuautla)")
+                ev_date = st.text_input("Fecha y Hora (ej. 2026-10-05 18:00:00)")
+                
+                submit_event = st.form_submit_button("Publicar Evento")
+                
+                if submit_event:
+                    try:
+                        supabase.table("events").insert({
+                            "title": ev_title,
+                            "location": ev_location,
+                            "event_date": ev_date if ev_date else None,
+                            "host_id": user_id
+                        }).execute()
+                        st.success("¡Evento publicado con éxito!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al crear el evento: {e}")
+        
+        st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
+        
+        # Cargar eventos de la tabla real
+        events_data = supabase.table("events").select("*").execute()
+        
+        if events_data.data:
+            for ev in events_data.data:
+                st.markdown(f"""
+                    <div class='modern-card'>
+                        <h3 style='margin:0; color: #0f172a; font-weight: 700;'>🎉 {ev.get('title')}</h3>
+                        <p style='color: #64748b; margin: 5px 0 10px 0;'>📍 <b>Lugar:</b> {ev.get('location', 'Por definir')}</p>
+                        <p style='color: #64748b; margin: 0 0 15px 0;'>📅 <b>Fecha:</b> {ev.get('event_date', 'Próximamente')}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No hay eventos activos en este momento. ¡Crea el primero usando el botón de arriba!")

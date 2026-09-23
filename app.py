@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilos CSS Profesionales
+# Estilos CSS Profesionales (Estilo Mensajería Moderna)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -87,6 +87,10 @@ supabase = init_connection()
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# Inicializar chat activo en session_state si no existe
+if "chat_active_with" not in st.session_state:
+    st.session_state.chat_active_with = None
+
 # --- ENCABEZADO PRINCIPAL ---
 st.markdown("<h1 style='text-align: center; color: #0f172a; font-weight: 700; letter-spacing: -1px;'>⚡ VibeSync</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.05rem; margin-top: -10px;'>Red social privada, eventos y chat con amigos</p>", unsafe_allow_html=True)
@@ -153,6 +157,7 @@ else:
         if st.button("Cerrar Sesión"):
             supabase.auth.sign_out()
             st.session_state.user = None
+            st.session_state.chat_active_with = None
             st.rerun()
             
     st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
@@ -218,7 +223,6 @@ else:
             busqueda = st.text_input("Buscar por nombre de usuario o `@usuario`")
             
             if busqueda:
-                # Buscar usuarios que coincidan
                 found = supabase.table("profiles").select("*").ilike("username", f"%{busqueda}%").neq("id", user_id).execute()
                 
                 if found.data:
@@ -226,7 +230,6 @@ else:
                         u_id = u.get("id")
                         u_avatar = u.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         
-                        # Revisar si ya son amigos o hay solicitud pendiente
                         existing = supabase.table("friendships").select("*").or_(
                             f"and(requester_id.eq.{user_id},receiver_id.eq.{u_id}),and(requester_id.eq.{u_id},receiver_id.eq.{user_id})"
                         ).execute()
@@ -271,24 +274,19 @@ else:
 
         with sub_tab2:
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            # Buscar amistades aceptadas
             amigos_q = supabase.table("friendships").select("*").or_(
                 f"requester_id.eq.{user_id},receiver_id.eq.{user_id}"
             ).eq("status", "accepted").execute()
             
             if amigos_q.data:
                 for rel in amigos_q.data:
-                    # Identificar el ID del amigo
                     amigo_id = rel.get("receiver_id") if rel.get("requester_id") == user_id else rel.get("requester_id")
-                    
-                    # Obtener perfil del amigo
                     amigo_perfil = supabase.table("profiles").select("*").eq("id", amigo_id).execute()
                     if amigo_perfil.data:
                         ap = amigo_perfil.data[0]
                         ap_avatar = ap.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         dna = ap.get("taste_dna", {})
                         
-                        # Buscar eventos de este amigo (privacidad de amigos)
                         evs = supabase.table("events").select("*").eq("host_id", amigo_id).execute()
                         eventos_str = ""
                         if evs.data:
@@ -325,7 +323,6 @@ else:
 
         with sub_tab3:
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            # Solicitudes donde el usuario es receptor y el estado es pending
             pendientes = supabase.table("friendships").select("*").eq("receiver_id", user_id).eq("status", "pending").execute()
             
             if pendientes.data:
@@ -336,11 +333,10 @@ else:
                     sender_info = supabase.table("profiles").select("*").eq("id", sender_id).execute()
                     if sender_info.data:
                         si = sender_info.data[0]
-                        si_avatar = si.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
                         
                         col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
                         with col_p1:
-                            st.markdown(f"**{si.get('full_name')}** `@{si.get('username')}` te envió una solicitud.")
+                            st.markdown(f"**{si.get('full_name')}** `@{si.get('username')}` te envió solicitud.")
                         with col_p2:
                             if st.button("Aceptar", key=f"acc_{req_id}"):
                                 supabase.table("friendships").update({"status": "accepted"}).eq("id", req_id).execute()
@@ -352,7 +348,7 @@ else:
                                 st.info("Solicitud rechazada.")
                                 st.rerun()
             else:
-                st.info("No tienes solicitudes de amistad pendientes.")
+                st.info("No tienes solicitudes pendientes.")
 
     with tab_eventos:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -399,7 +395,6 @@ else:
         
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
         
-        # Mostrar ÚNICAMENTE los eventos creados por el usuario actual
         my_events = supabase.table("events").select("*").eq("host_id", user_id).execute()
         
         if my_events.data:
@@ -423,9 +418,9 @@ else:
 
     with tab_chat:
         st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>💬 Chat Privado con Amigos</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>💬 Mensajería Privada</h3>", unsafe_allow_html=True)
         
-        # Obtener lista de amigos aceptados para chatear
+        # Obtener amigos aceptados
         amigos_chat = supabase.table("friendships").select("*").or_(
             f"requester_id.eq.{user_id},receiver_id.eq.{user_id}"
         ).eq("status", "accepted").execute()
@@ -436,58 +431,76 @@ else:
                 a_id = rel.get("receiver_id") if rel.get("requester_id") == user_id else rel.get("requester_id")
                 amigos_ids.append(a_id)
             
-            # Obtener datos de los amigos
-            amigos_profiles = supabase.table("profiles").select("id, full_name, username").in_("id", amigos_ids).execute()
+            amigos_profiles = supabase.table("profiles").select("id, full_name, username, avatar_url").in_("id", amigos_ids).execute()
             
             if amigos_profiles.data:
-                # Diccionario para selector
-                amigos_dict = {f"{p.get('full_name')} (@{p.get('username')})": p.get('id') for p in amigos_profiles.data}
+                # Interfaz dividida en columnas: Izquierda (Lista de amigos estilo WhatsApp), Derecha (Chat activo)
+                col_lista, col_conversacion = st.columns([1, 2])
                 
-                seleccion_amigo = st.selectbox("Selecciona un amigo para chatear", list(amigos_dict.keys()))
-                destinatario_id = amigos_dict[seleccion_amigo]
+                with col_lista:
+                    st.markdown("<p style='font-weight: 600; color: #475569;'>Tus Amigos</p>", unsafe_allow_html=True)
+                    for amigo in amigos_profiles.data:
+                        a_id = amigo.get("id")
+                        a_name = amigo.get("full_name")
+                        a_user = amigo.get("username")
+                        a_avatar = amigo.get("avatar_url") or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
+                        
+                        # Botón estilizado para seleccionar al amigo con el que chatear
+                        if st.button(f"💬 {a_name}", key=f"chat_with_{a_id}"):
+                            st.session_state.chat_active_with = a_id
+                            st.rerun()
                 
-                st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
-                
-                # Cargar historial de mensajes entre ambos usuarios
-                mensajes_q = supabase.table("messages").select("*").or_(
-                    f"and(sender_id.eq.{user_id},receiver_id.eq.{destinatario_id}),and(sender_id.eq.{destinatario_id},receiver_id.eq.{user_id})"
-                ).order("created_at", desc=False).execute()
-                
-                # Contenedor visual de chat
-                chat_container = st.container()
-                with chat_container:
-                    if mensajes_q.data:
-                        for m in mensajes_q.data:
-                            is_me = m.get("sender_id") == user_id
-                            alineacion = "right" if is_me else "left"
-                            color_fondo = "#0f172a" if is_me else "#e2e8f0"
-                            color_texto = "white" if is_me else "#1e293b"
+                with col_conversacion:
+                    if st.session_state.chat_active_with:
+                        # Buscar datos del amigo seleccionado
+                        dest_info = supabase.table("profiles").select("*").eq("id", st.session_state.chat_active_with).execute()
+                        if dest_info.data:
+                            dest = dest_info.data[0]
+                            st.markdown(f"<div style='background: #f1f5f9; padding: 10px 15px; border-radius: 12px; margin-bottom: 15px;'><h4 style='margin:0; color:#0f172a;'>Chat con {dest.get('full_name')} (@{dest.get('username')})</h4></div>", unsafe_allow_html=True)
                             
-                            st.markdown(f"""
-                                <div style='text-align: {alineacion}; margin-bottom: 10px;'>
-                                    <div style='display: inline-block; background: {color_fondo}; color: {color_texto}; padding: 10px 16px; border-radius: 14px; max-width: 75%; text-align: left;'>
-                                        {m.get('content')}
-                                    </div>
-                                </div>
-                            """, unsafe_allow_html=True)
+                            # Botón rápido para actualizar mensajes sin cerrar sesión
+                            if st.button("🔄 Actualizar Mensajes"):
+                                st.rerun()
+                            
+                            # Cargar mensajes
+                            mensajes_q = supabase.table("messages").select("*").or_(
+                                f"and(sender_id.eq.{user_id},receiver_id.eq.{st.session_state.chat_active_with}),and(sender_id.eq.{st.session_state.chat_active_with},receiver_id.eq.{user_id})"
+                            ).order("created_at", desc=False).execute()
+                            
+                            chat_box = st.container(height=350)
+                            with chat_box:
+                                if mensajes_q.data:
+                                    for m in mensajes_q.data:
+                                        is_me = m.get("sender_id") == user_id
+                                        alineacion = "right" if is_me else "left"
+                                        color_fondo = "#0f172a" if is_me else "#e2e8f0"
+                                        color_texto = "white" if is_me else "#1e293b"
+                                        
+                                        st.markdown(f"""
+                                            <div style='text-align: {alineacion}; margin-bottom: 8px;'>
+                                                <div style='display: inline-block; background: {color_fondo}; color: {color_texto}; padding: 8px 14px; border-radius: 12px; max-width: 80%; text-align: left; font-size: 0.9rem;'>
+                                                    {m.get('content')}
+                                                </div>
+                                            </div>
+                                        """, unsafe_allow_html=True)
+                                else:
+                                    st.info("Inicia la conversación con este amigo.")
+                            
+                            # Enviar mensaje
+                            with st.form("chat_msg_form", clear_on_submit=True):
+                                txt_msg = st.text_input("Escribe un mensaje...", key="msg_input_field")
+                                btn_enviar = st.form_submit_button("Enviar")
+                                
+                                if btn_enviar and txt_msg.strip():
+                                    supabase.table("messages").insert({
+                                        "sender_id": user_id,
+                                        "receiver_id": st.session_state.chat_active_with,
+                                        "content": txt_msg.strip()
+                                    }).execute()
+                                    st.rerun()
                     else:
-                        st.info("Aún no hay mensajes en este chat. ¡Escribe el primero!")
-                
-                st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
-                
-                # Input para enviar nuevo mensaje
-                with st.form("chat_form", clear_on_submit=True):
-                    nuevo_mensaje = st.text_input("Escribe tu mensaje...")
-                    enviar_msg = st.form_submit_button("Enviar Mensaje")
-                    
-                    if enviar_msg and nuevo_mensaje.strip():
-                        supabase.table("messages").insert({
-                            "sender_id": user_id,
-                            "receiver_id": destinatario_id,
-                            "content": nuevo_mensaje.strip()
-                        }).execute()
-                        st.rerun()
+                        st.info("👈 Selecciona un amigo de la lista de la izquierda para abrir el chat privado.")
             else:
                 st.info("No se pudieron cargar los datos de tus amigos.")
         else:
-            st.info("Necesitas tener al menos un amigo con la solicitud aceptada para poder chatear.")
+            st.info("Necesitas tener amigos agregados y con solicitud aceptada para poder chatear.")

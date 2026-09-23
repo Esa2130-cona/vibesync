@@ -1,5 +1,6 @@
 import streamlit as st
 from supabase import create_client, Client
+from datetime import datetime
 
 # Configuración de la página
 st.set_page_config(
@@ -209,24 +210,37 @@ else:
 
     with tab_amigos:
         st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
-        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>👥 Comunidad y Amigos</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Descubre los perfiles y gustos de otros miembros de la red.</p>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>👥 Comunidad y Perfiles</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Explora los gustos y eventos organizados por cada miembro de la red.</p>", unsafe_allow_html=True)
         
-        all_profiles = supabase.table("profiles").select("username, full_name, avatar_url, taste_dna").neq("id", user_id).execute()
+        all_profiles = supabase.table("profiles").select("id, username, full_name, avatar_url, taste_dna").neq("id", user_id).execute()
         
         if all_profiles.data:
             for p in all_profiles.data:
                 dna = p.get("taste_dna", {})
                 p_avatar = p.get('avatar_url') or "https://api.dicebear.com/7.x/avataaars/svg?seed=default"
+                p_id = p.get('id')
                 
+                # Buscar eventos organizados por este usuario específico
+                user_events = supabase.table("events").select("*").eq("host_id", p_id).execute()
+                
+                eventos_html = ""
+                if user_events.data:
+                    eventos_html += "<div style='margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;'><p style='font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 5px;'>🎉 Eventos organizados:</p>"
+                    for ev in user_events.data:
+                        eventos_html += f"<p style='font-size: 0.82rem; color: #64748b; margin: 2px 0;'>• <b>{ev.get('title')}</b> ({ev.get('event_date', 'Pronto')} en {ev.get('location', 'Lugar por definir')})</p>"
+                    eventos_html += "</div>"
+                else:
+                    eventos_html += "<p style='font-size: 0.82rem; color: #94a3b8; margin-top: 10px;'>Sin eventos activos por el momento.</p>"
+
                 st.markdown(f"""
                     <div class='modern-card'>
                         <table style='width:100%; border:none;'>
                             <tr>
-                                <td style='width: 100px; border:none; vertical-align: middle;'>
+                                <td style='width: 100px; border:none; vertical-align: top;'>
                                     <img src='{p_avatar}' class='avatar-img'>
                                 </td>
-                                <td style='border:none; vertical-align: middle; padding-left: 10px;'>
+                                <td style='border:none; vertical-align: top; padding-left: 10px;'>
                                     <h3 style='margin:0; color: #0f172a; font-weight: 700;'>{p.get('full_name')}</h3>
                                     <p style='color: #64748b; margin:2px 0 10px 0; font-weight: 500;'>@{p.get('username')}</p>
                                     <div>
@@ -234,6 +248,7 @@ else:
                                         <span class='badge'>🎵 {dna.get('music', 'N/A')}</span>
                                         <span class='badge'>💻 {dna.get('tech', 'N/A')}</span>
                                     </div>
+                                    {eventos_html}
                                 </td>
                             </tr>
                         </table>
@@ -245,23 +260,41 @@ else:
     with tab_eventos:
         st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
         st.markdown("<h3 style='color: #0f172a; font-weight: 700; margin-bottom: 5px;'>🎉 Eventos y Reuniones</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Organiza reuniones y planes con la comunidad.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; margin-bottom: 25px;'>Organiza reuniones y planes con la comunidad de forma rápida.</p>", unsafe_allow_html=True)
         
-        # Formulario adaptado a las columnas reales de tu tabla 'events' (`host_id`, `title`, `event_date`, `location`)
+        # Formulario optimizado con selectores visuales
         with st.expander("➕ Organizar Nuevo Evento"):
             with st.form("event_form"):
-                ev_title = st.text_input("Título del Evento (ej. Carne Asada Fin de Semana)")
-                ev_location = st.text_input("Ubicación / Lugar (ej. Terraza Cuautla)")
-                ev_date = st.text_input("Fecha y Hora (ej. 2026-10-05 18:00:00)")
+                ev_title = st.text_input("Título del Evento (ej. Carne Asada / Rodada / Reunión)")
+                
+                ubicacion_opcion = st.selectbox("Lugar de Encuentro", [
+                    "🏡 Casa / Terraza Principal", 
+                    "🏋️ Gimnasio Local", 
+                    "🏞️ Parque Nacional El Tepozteco", 
+                    "📍 Otro lugar personalizado..."
+                ])
+                
+                if ubicacion_opcion == "📍 Otro lugar personalizado...":
+                    ev_location = st.text_input("Escribe la ubicación exacta")
+                else:
+                    ev_location = ubicacion_opcion
+
+                col_d, col_h = st.columns(2)
+                with col_d:
+                    fecha_sel = st.date_input("Fecha del Evento")
+                with col_h:
+                    hora_sel = st.time_input("Hora del Encuentro")
                 
                 submit_event = st.form_submit_button("Publicar Evento")
                 
                 if submit_event:
                     try:
+                        fecha_hora_combinada = f"{fecha_sel} {hora_sel.strftime('%H:%M')}"
+                        
                         supabase.table("events").insert({
                             "title": ev_title,
                             "location": ev_location,
-                            "event_date": ev_date if ev_date else None,
+                            "event_date": fecha_hora_combinada,
                             "host_id": user_id
                         }).execute()
                         st.success("¡Evento publicado con éxito!")
@@ -271,17 +304,34 @@ else:
         
         st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
         
-        # Cargar eventos de la tabla real
+        # Cargar y mostrar los eventos publicados
         events_data = supabase.table("events").select("*").execute()
         
         if events_data.data:
             for ev in events_data.data:
+                ev_id = ev.get('id')
+                host_id = ev.get('host_id')
+                
                 st.markdown(f"""
                     <div class='modern-card'>
                         <h3 style='margin:0; color: #0f172a; font-weight: 700;'>🎉 {ev.get('title')}</h3>
-                        <p style='color: #64748b; margin: 5px 0 10px 0;'>📍 <b>Lugar:</b> {ev.get('location', 'Por definir')}</p>
-                        <p style='color: #64748b; margin: 0 0 15px 0;'>📅 <b>Fecha:</b> {ev.get('event_date', 'Próximamente')}</p>
+                        <p style='color: #64748b; margin: 8px 0 5px 0;'>📍 <b>Lugar:</b> {ev.get('location', 'Por definir')}</p>
+                        <p style='color: #64748b; margin: 0 0 10px 0;'>📅 <b>Fecha y Hora:</b> {ev.get('event_date', 'Próximamente')}</p>
                     </div>
                 """, unsafe_allow_html=True)
+                
+                # Si el usuario actual es el creador del evento, mostrar botón de eliminar
+                if host_id == user_id:
+                    col_del_space, col_del_btn = st.columns([3, 1])
+                    with col_del_btn:
+                        if st.button("🗑️ Borrar Evento", key=f"del_{ev_id}"):
+                            try:
+                                supabase.table("events").delete().eq("id", ev_id).execute()
+                                st.success("¡Evento eliminado correctamente!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"No se pudo eliminar: {e}")
+                
+                st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
         else:
             st.info("No hay eventos activos en este momento. ¡Crea el primero usando el botón de arriba!")

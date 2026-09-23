@@ -25,9 +25,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Conexión a Supabase usando los nombres correctos de los Secrets
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+# Conexión directa a Supabase con URL y Key integradas
+SUPABASE_URL = "https://jemlrjrbbfeezojuuqye.supabase.co"
+SUPABASE_KEY = "sb_publishable_R7f_854Ol9n5JeGiISvnSA_ImMTeW0h"
 
 @st.cache_resource
 def init_connection():
